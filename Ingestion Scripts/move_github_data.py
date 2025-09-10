@@ -13,12 +13,13 @@ import io
 import pandas as pd
 
 from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import ContentSettings
 
 
 
 
-START_SEASON = 15 # beginning of first season of available data (representing 2015-16)
-END_SEASON = 24 # beginning of final season of available data (representing 2024-25)
+START_SEASON = 16 # beginning of first season of available data (representing 2015-16)
+END_SEASON = 23 # beginning of final season of available data (representing 2024-25)
 
 
 
@@ -27,7 +28,10 @@ def get_season_gw_file(season: int):
     url = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/{season_tag}/gws/merged_gw.csv"
 
     try:
-        csv_file = pd.read_csv(url)
+        try:
+            csv_file = pd.read_csv(url)
+        except:
+            csv_file = pd.read_csv(url, encoding='ISO-8859-1')
 
     except Exception as e:
         print(f'Exception occurred: {e}')
@@ -52,7 +56,7 @@ def upload_to_azure(csv_file: pd.DataFrame, cxn_str: str, azure_container: str, 
             print(f'Container "{azure_container}" created.')
 
         blob_client = container_client.get_blob_client(azure_blob_name)
-        blob_client.upload_blob(csv_string, overwrite=True, content_settings={"content_type": "text/csv"})
+        blob_client.upload_blob(csv_string, overwrite=True, content_settings=ContentSettings(content_type='application/CSV'))
         return True
 
     except Exception as e:
@@ -61,13 +65,13 @@ def upload_to_azure(csv_file: pd.DataFrame, cxn_str: str, azure_container: str, 
 
 
 def main():
-    dotenv.load_dotenv
+    dotenv.load_dotenv()
     cxn_str = os.getenv("AZURE_CXN_STRING")
     container_name = os.getenv("AZURE_CSV_CONTAINER_NAME")
 
     for s in range(START_SEASON, END_SEASON+1):
         season_tag = f'20{s:02}-{s+1:02}'
-        print(f'Moving data for the {season_tag} season')
+        print(f'\nMoving data for the {season_tag} season')
 
         file = get_season_gw_file(s)
         if file is None:
@@ -77,3 +81,6 @@ def main():
         azure_blob_name = f'player_gw_raw__20{s}_{s+1}.csv'
         upload_to_azure(file, cxn_str, container_name, azure_blob_name)
 
+
+
+main()
