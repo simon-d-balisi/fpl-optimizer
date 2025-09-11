@@ -19,12 +19,13 @@ from azure.storage.blob import ContentSettings
 
 
 START_SEASON = 16 # beginning of first season of available data (representing 2015-16)
-END_SEASON = 23 # beginning of final season of available data (representing 2024-25)
+END_SEASON = 24 # beginning of final season of available data (representing 2024-25)
+NUM_GW = 38 # Number of gameweeks in one season
 
 
 
 def get_season_gw_file(season: int):
-    season_tag = f'20{season}-{season+1}'
+    season_tag = f'20{season:02}-{season+1:02}'
     url = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/{season_tag}/gws/merged_gw.csv"
 
     try:
@@ -39,6 +40,25 @@ def get_season_gw_file(season: int):
 
     else:
         return csv_file
+    
+
+def get_gw_gw_file(season: int, gw: int):
+    season_tag = f'20{season:02}-{season+1:02}'
+    url = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/{season_tag}/gws/gw{gw}.csv"
+
+    try:
+        try:
+            csv_file = pd.read_csv(url)
+        except:
+            csv_file = pd.read_csv(url, encoding='ISO-8859-1')
+
+    except Exception as e:
+        print(f'Exception occurred: {e}, GW {gw}')
+        return None
+
+    else:
+        return csv_file
+    
 
 
 
@@ -69,7 +89,7 @@ def main():
     cxn_str = os.getenv("AZURE_CXN_STRING")
     container_name = os.getenv("AZURE_CSV_CONTAINER_NAME")
 
-    for s in range(START_SEASON, END_SEASON+1):
+    for s in range(START_SEASON, END_SEASON):
         season_tag = f'20{s:02}-{s+1:02}'
         print(f'\nMoving data for the {season_tag} season')
 
@@ -80,6 +100,31 @@ def main():
 
         azure_blob_name = f'player_gw_raw__20{s}_{s+1}.csv'
         upload_to_azure(file, cxn_str, container_name, azure_blob_name)
+
+
+    season_tag = f'20{END_SEASON:02}-{END_SEASON+1:02}'
+    print(f'\nMoving data for the {season_tag} season')
+    first_df = None
+    second_df = None
+    for g in range(NUM_GW):
+        csvdata = get_gw_gw_file(END_SEASON, g+1)
+        if g < 22:
+            if first_df is None:
+                first_df = csvdata
+            else:
+                first_df = pd.concat([first_df, csvdata], axis=0, ignore_index=True)
+        else:
+            if second_df is None:
+                second_df = csvdata
+            else:
+                second_df = pd.concat([second_df, csvdata], axis=0, ignore_index=True)
+
+    blob_name_1 = 'player_gw_raw_2024_25_GW1_21.csv'
+    blob_name_2 = 'player_gw_raw_2024_25_GW22_38.csv'
+
+    upload_to_azure(first_df, cxn_str, container_name, blob_name_1)
+    upload_to_azure(second_df, cxn_str, container_name, blob_name_2)
+
 
 
 
