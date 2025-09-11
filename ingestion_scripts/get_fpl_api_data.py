@@ -4,12 +4,7 @@ This file will be for parsing through the fpl API and getting all data for the c
 It will upload the raw data directly into azure blob storage.
 """
 
-
-import requests
-import json
-import time
-
-from api_data_getter import get_data
+from .api_data_getter import get_data
 
 
 
